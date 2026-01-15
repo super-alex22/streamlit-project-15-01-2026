@@ -2,100 +2,91 @@ import streamlit as st
 import pandas as pd
 
 # 1. Page Configuration
-st.set_page_config(page_title="Class Manager Pro", page_icon="📝")
+st.set_page_config(page_title="Pro Gradebook & GPA", page_icon="🎓")
 
-# 2. Data Initialization (Session State)
-# Ensures data persists during the user session
-if "students" not in st.session_state:
-    st.session_state.students = {
-        "Ivan": 0,
-        "Maria": 0,
-        "Georgi": 0,
-        "Elena": 0
+# 2. Data Initialization
+# We now store grades in a list for each student to calculate the average
+if "student_records" not in st.session_state:
+    st.session_state.student_records = {
+        "Ivan": [6, 5, 4],
+        "Maria": [6, 6, 5],
+        "Georgi": [3, 4, 3],
+        "Elena": [6, 5, 6]
     }
 
-if "grades" not in st.session_state:
-    st.session_state.grades = {
-        "Excellent (6)": 0,
-        "Very Good (5)": 0,
-        "Good (4)": 0,
-        "Satisfactory (3)": 0,
-        "Poor (2)": 0
-    }
+# Mapping grades to numerical values for math operations
+grade_values = {
+    "Excellent (6)": 6,
+    "Very Good (5)": 5,
+    "Good (4)": 4,
+    "Satisfactory (3)": 3,
+    "Poor (2)": 2
+}
 
-# --- SIDEBAR: Management Tools ---
-st.sidebar.header("⚙️ Administration")
+# --- SIDEBAR ---
+st.sidebar.header("⚙️ Classroom Setup")
+new_student = st.sidebar.text_input("New Student Name:")
+if st.sidebar.button("Add to Class"):
+    if new_student and new_student not in st.session_state.student_records:
+        st.session_state.student_records[new_student] = []
+        st.sidebar.success(f"{new_student} added to roster!")
 
-# Feature: Add new students to the list
-new_student_name = st.sidebar.text_input("Enroll a new student:")
-if st.sidebar.button("Add to Roster"):
-    if new_student_name and new_student_name not in st.session_state.students:
-        st.session_state.students[new_student_name] = 0
-        st.sidebar.success(f"{new_student_name} added!")
-    else:
-        st.sidebar.error("Invalid name or student exists.")
-
-st.sidebar.divider()
-
-# Feature: Emergency Reset
-if st.sidebar.button("🔥 Reset All Data", help="Wipes all counts and stats"):
-    st.session_state.students = {k: 0 for k in st.session_state.students}
-    st.session_state.grades = {k: 0 for k in st.session_state.grades}
+if st.sidebar.button("🔥 Factory Reset"):
+    st.session_state.student_records = {k: [] for k in st.session_state.student_records}
     st.rerun()
 
-# --- MAIN INTERFACE ---
-st.title("🎓 Smart Gradebook Dashboard")
-st.write("Manage student performance and track grade distribution in real-time.")
+# --- MAIN UI ---
+st.title("📊 Final Grade Calculator")
+st.write("Record new grades and automatically calculate the final GPA for each student.")
 
-# Organizing layout into columns
-col1, col2 = st.columns([2, 1])
+# Input Section
+st.subheader("📥 Quick Grade Entry")
+col_s, col_g, col_b = st.columns([2, 2, 1])
 
-with col1:
-    st.subheader("📥 Data Entry")
-    selected_student = st.selectbox("Select Student:", list(st.session_state.students.keys()))
-    selected_grade = st.selectbox("Assign Grade:", list(st.session_state.grades.keys()))
-
-    if st.button("Submit Record", use_container_width=True):
-        st.session_state.students[selected_student] += 1
-        st.session_state.grades[selected_grade] += 1
-        
-        # Celebration for top grades
-        if "6" in selected_grade:
-            st.balloons()
-            st.success(f"Great job, {selected_student}!")
-        else:
-            st.info("Record updated successfully.")
-
-with col2:
-    st.subheader("💾 Export")
-    # Generating CSV for download
-    df_report = pd.DataFrame.from_dict(st.session_state.students, orient="index", columns=["Entries"])
-    csv_data = df_report.to_csv().encode('utf-8')
-    
-    st.download_button(
-        label="Download Report",
-        data=csv_data,
-        file_name='student_activity.csv',
-        mime='text/csv',
-        use_container_width=True
-    )
+with col_s:
+    student = st.selectbox("Student:", list(st.session_state.student_records.keys()))
+with col_g:
+    grade_label = st.selectbox("Grade:", list(grade_values.keys()))
+with col_b:
+    st.write(" ") # Padding
+    if st.button("Add Grade"):
+        val = grade_values[grade_label]
+        st.session_state.student_records[student].append(val)
+        if val == 6: st.balloons()
+        st.toast(f"Recorded {val} for {student}")
 
 st.divider()
 
-# --- VISUALIZATION SECTION ---
-st.header("📊 Performance Analytics")
+# --- FINAL GRADE CALCULATION ---
+st.header("📋 Official Gradebook")
 
-# Using tabs to separate different charts
-tab_students, tab_grades = st.tabs(["Student Activity", "Grade Stats"])
+# Prepare data for the final table
+report_data = []
+for name, grades in st.session_state.student_records.items():
+    if grades:
+        avg = sum(grades) / len(grades)
+        status = "✅ PASS" if avg >= 3.0 else "❌ FAIL"
+    else:
+        avg = 0.0
+        status = "No Data"
+    
+    report_data.append({
+        "Student Name": name,
+        "Grades Count": len(grades),
+        "Average Score": round(avg, 2),
+        "Final Status": status
+    })
 
-with tab_students:
-    st.write("Total entries per student:")
-    chart_data_students = pd.DataFrame.from_dict(st.session_state.students, orient="index", columns=["Count"])
-    st.bar_chart(chart_data_students)
+# Display as a professional table
+final_df = pd.DataFrame(report_data)
+st.table(final_df)
 
-with tab_grades:
-    st.write("Frequency of awarded grades:")
-    chart_data_grades = pd.DataFrame.from_dict(st.session_state.grades, orient="index", columns=["Total"])
-    st.bar_chart(chart_data_grades)
 
-st.caption("System Online. Ready for inputs.")
+
+# --- VISUALIZATION ---
+st.subheader("📈 Performance Chart")
+if not final_df.empty:
+    chart_df = final_df.set_index("Student Name")["Average Score"]
+    st.bar_chart(chart_df)
+
+st.caption("Final grades are calculated using a simple arithmetic mean.")
