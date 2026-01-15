@@ -3,122 +3,114 @@ import pandas as pd
 from datetime import datetime
 
 # 1. Page Configuration
-st.set_page_config(page_title="The Eternal Gradebook", page_icon="🕵️‍♂️", layout="wide")
+st.set_page_config(page_title="Gradebook Pro Max", page_icon="📈", layout="wide")
 
-# 2. Data Initialization with Timestamps
+# 2. Data Initialization
 if "student_records" not in st.session_state:
-    # Records now include 'date' for every entry
     st.session_state.student_records = {
-        "Ivan": [{'value': 6, 'type': 'Active Participation', 'date': '2026-01-10 09:00'}],
-        "Maria": [{'value': 6, 'type': 'Final Exam', 'date': '2026-01-12 14:30'}],
-        "Georgi": [{'value': 2, 'type': 'Control Work', 'date': '2026-01-14 11:15'}],
-        "Elena": [{'value': 5, 'type': 'Homework', 'date': '2026-01-15 08:45'}]
+        "Ivan": [{'id': 1, 'value': 6, 'type': 'Test', 'date': '2026-01-10 09:00'}],
+        "Maria": [{'id': 2, 'value': 6, 'type': 'Final Exam', 'date': '2026-01-12 14:30'}]
     }
+if "id_counter" not in st.session_state:
+    st.session_state.id_counter = 3
 
-# 3. Weights and Values Configuration
+# 3. Weights and Values
 grade_types = {
-    "Active Participation": 0.5,
-    "Homework": 1.0,
-    "Oral Test": 1.5,
-    "Test": 2.0,
-    "Project": 2.0,
-    "Control Work": 2.5,
-    "Final Exam": 3.0
+    "Active Participation": 0.5, "Homework": 1.0, "Oral Test": 1.5,
+    "Test": 2.0, "Project": 2.0, "Control Work": 2.5, "Final Exam": 3.0
 }
-
 grade_values = {
-    "Excellent (6)": 6,
-    "Very Good (5)": 5,
-    "Good (4)": 4,
-    "Satisfactory (3)": 3,
-    "Poor (2)": 2
+    "Excellent (6)": 6, "Very Good (5)": 5, "Good (4)": 4, 
+    "Satisfactory (3)": 3, "Poor (2)": 2
 }
 
-# --- SIDEBAR: Admin Tools ---
-st.sidebar.header("🛠️ Admin Controls")
-new_student = st.sidebar.text_input("Enroll Student Name:")
-if st.sidebar.button("Register Student"):
+# --- SIDEBAR: Admin ---
+st.sidebar.header("⚙️ Settings")
+new_student = st.sidebar.text_input("Enroll Student:")
+if st.sidebar.button("Add to System"):
     if new_student and new_student not in st.session_state.student_records:
         st.session_state.student_records[new_student] = []
-        st.sidebar.success(f"Student '{new_student}' is now in the system.")
-
-if st.sidebar.button("🔥 Absolute Reset"):
-    st.session_state.student_records = {k: [] for k in st.session_state.student_records}
-    st.rerun()
+        st.sidebar.success(f"{new_student} is ready!")
 
 # --- MAIN UI ---
-st.title("🕵️‍♂️ The Master Gradebook & Audit Log")
-st.write("Track every grade, every category, and every second of academic progress.")
+st.title("🍎 Smart Class Auditor")
 
-# Input Section
-st.subheader("📥 Entry Point")
-c1, c2, c3 = st.columns(3)
+# --- SECTION 1: ADDING GRADES ---
+st.subheader("📥 Add Performance Record")
+col1, col2, col3 = st.columns(3)
 
-with c1:
-    target_student = st.selectbox("Select Student:", list(st.session_state.student_records.keys()))
-with c2:
-    assignment_type = st.selectbox("Select Type:", list(grade_types.keys()))
-with c3:
-    grade_label = st.selectbox("Select Grade:", list(grade_values.keys()))
+with col1:
+    target_s = st.selectbox("Student:", list(st.session_state.student_records.keys()))
+with col2:
+    as_type = st.selectbox("Type:", list(grade_types.keys()))
+with col3:
+    g_label = st.selectbox("Grade:", list(grade_values.keys()))
 
-if st.button("Log Grade into History", use_container_width=True):
-    val = grade_values[grade_label]
-    # Adding the current time to the entry
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.student_records[target_student].append({
+if st.button("Add Grade to Ledger", use_container_width=True):
+    val = grade_values[g_label]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Create record with unique ID for deletion tracking
+    st.session_state.student_records[target_s].append({
+        'id': st.session_state.id_counter,
         'value': val,
-        'type': assignment_type,
-        'date': current_time
+        'type': as_type,
+        'date': now
     })
-    st.success(f"Entry confirmed for {target_student} at {current_time}!")
+    st.session_state.id_counter += 1
+    
+    # POP-UP NOTIFICATIONS
+    st.toast(f"Success! {target_s} received a {val}", icon="✅")
     if val == 6: st.balloons()
 
 st.divider()
 
-# --- THE ALL-SEEING LOG (Full History) ---
-st.header("📜 Global Audit Log")
-st.write("Here is the full list of all grades entered into the system, sorted by time.")
+# --- SECTION 2: VIEWING & DELETING ---
+st.header("📜 Audit Log & Correction")
 
-# Flattening the dictionary for a global view
+# Flattening data for the table
 all_entries = []
-for student_name, entries in st.session_state.student_records.items():
-    for record in entries:
+for name, records in st.session_state.student_records.items():
+    for r in records:
         all_entries.append({
-            "Timestamp": record['date'],
-            "Student": student_name,
-            "Type": record['type'],
-            "Grade": record['value']
+            "ID": r['id'], "Date": r['date'], "Student": name, 
+            "Category": r['type'], "Score": r['value']
         })
 
 if all_entries:
-    full_history_df = pd.DataFrame(all_entries)
-    # Sorting by timestamp so the latest is on top
-    full_history_df = full_history_df.sort_values(by="Timestamp", ascending=False)
-    st.dataframe(full_history_df, use_container_width=True, hide_index=True)
+    df = pd.DataFrame(all_entries).sort_values(by="Date", ascending=False)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # DELETION LOGIC
+    st.subheader("🗑️ Delete Incorrect Entry")
+    # Creating a label for the selectbox to identify records
+    record_to_del = st.selectbox(
+        "Select record ID to remove:", 
+        options=df["ID"].tolist(),
+        format_func=lambda x: f"ID: {x} | {df[df['ID']==x]['Student'].values[0]} - {df[df['ID']==x]['Category'].values[0]}"
+    )
+    
+    if st.button("Delete Record", type="primary"):
+        for name in st.session_state.student_records:
+            st.session_state.student_records[name] = [
+                r for r in st.session_state.student_records[name] if r['id'] != record_to_del
+            ]
+        st.toast("Record deleted successfully!", icon="🗑️")
+        st.rerun()
 else:
-    st.info("The history is currently empty. Start grading!")
+    st.info("No records to display.")
 
 st.divider()
 
-# --- SEMESTER SUMMARY ---
-st.header("📊 Semester Statistics")
-
-report_rows = []
+# --- SECTION 3: ANALYTICS ---
+st.header("📊 Final Weighted GPA")
+stats = []
 for name, records in st.session_state.student_records.items():
     if records:
-        total_score = sum(r['value'] * grade_types[r['type']] for r in records)
-        total_weight = sum(grade_types[r['type']] for r in records)
-        weighted_avg = total_score / total_weight
-    else:
-        weighted_avg = 0.0
-    
-    report_rows.append({
-        "Student": name,
-        "Entries": len(records),
-        "Weighted GPA": round(weighted_avg, 2)
-    })
+        total = sum(r['value'] * grade_types[r['type']] for r in records)
+        w_sum = sum(grade_types[r['type']] for r in records)
+        avg = round(total / w_sum, 2)
+    else: avg = 0.0
+    stats.append({"Student": name, "GPA": avg})
 
-summary_df = pd.DataFrame(report_rows)
-st.table(summary_df)
-
-st.caption("Weighted GPA Formula: $Final = \\frac{\\sum (Grade_i \\times Weight_i)}{\\sum Weight_i}$")
+st.table(pd.DataFrame(stats))
